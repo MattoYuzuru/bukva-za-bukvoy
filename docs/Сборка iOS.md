@@ -35,6 +35,27 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 SDK, Simulator runtimes и DerivedData не добавляются в Git. Личные Xcode-настройки игнорируются, `project.pbxproj` и общая схема сохраняются в репозитории.
 
+## Готовая сборка в симуляторе
+
+Распакуйте Simulator ZIP с сохранением прав исполняемых файлов. Например, в корне репозитория:
+
+```sh
+mkdir -p .work/ios-install
+ditto -x -k artifacts/bukva-za-bukvoy-ios-simulator.zip .work/ios-install
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl list devices available
+```
+
+В Xcode откройте Xcode > Open Developer Tool > Device Hub и запустите нужный симулятор iPhone. В Xcode 26 и более ранних версиях инструмент называется Simulator. В Xcode 27 его приложение находится в `Xcode.app/Contents/Applications/DeviceHub.app`; прежнего `Contents/Developer/Applications/Simulator.app` может не быть. [Apple: Device Hub](https://developer.apple.com/documentation/xcode/device-hub).
+
+Затем установите приложение в выбранный симулятор, заменив `UDID` его идентификатором из списка:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun simctl install UDID .work/ios-install/BukvaZaBukvoy.app
+```
+
+Нажмите иконку «Буква за буквой» на домашнем экране симулятора. Это установка в виртуальное устройство Mac, она не создаёт подпись для физического iPhone.
+
 ## Автономный WWW
 
 `ios/prepare_web.py` поддерживает только текущую явную структуру пяти именованных модулей. Он замыкает каждый модуль в отдельную функцию, связывает именованные импорты и встраивает полный `game/data/words.json` в единственную транспортную точку загрузки словаря. `validateContent` остаётся тем же. Классический JS не требует CORS-загрузки ES modules или `fetch` из локального файла.
