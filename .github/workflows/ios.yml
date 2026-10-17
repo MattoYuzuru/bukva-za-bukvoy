@@ -1,0 +1,117 @@
+name: Сборки iOS без подписи
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'game/**'
+      - 'scripts/build_ios.py'
+      - 'scripts/validate.mjs'
+      - 'package.json'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - 'game/**'
+      - 'scripts/build_ios.py'
+      - 'scripts/validate.mjs'
+      - 'package.json'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+    inputs:
+      xcode_version:
+        description: 'Точная версия из xcodebuild -version; другая версия только по явному выбору'
+        required: true
+        default: '26.3'
+        type: choice
+        options: ['26.3', '26.2', '26.1.1', '26.0.1', '16.4']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unsigned:
+    name: Симулятор и неподписанная сборка устройства
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      REQUESTED_XCODE: ${{ inputs.xcode_version || '26.3' }}
+    steps:
+      - name: Получить исходники
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Подготовить Node 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Подготовить Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Выбрать точную версию Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected_xcode=''
+          for developer_dir in "/Applications/Xcode_${REQUESTED_XCODE}.app/Contents/Developer" "/Applications/Xcode_${REQUESTED_XCODE}.0.app/Contents/Developer" '/Applications/Xcode.app/Contents/Developer'; do
+            if [[ ! -x "$developer_dir/usr/bin/xcodebuild" ]]; then
+              continue
+            fi
+            actual_version="$(DEVELOPER_DIR="$developer_dir" "$developer_dir/usr/bin/xcodebuild" -version | sed -n 's/^Xcode //p')"
+            if [[ "$actual_version" == "$REQUESTED_XCODE" ]]; then
+              selected_xcode="$developer_dir"
+              break
+            fi
+          done
+          if [[ -z "$selected_xcode" ]]; then
+            printf 'Xcode %s отсутствует в этом образе. Другая версия автоматически не выбирается.\n' "$REQUESTED_XCODE" >&2
+            printf 'Проверьте actions/runner-images и повторите workflow_dispatch с явным выбором версии.\n' >&2
+            find /Applications -maxdepth 1 -name 'Xcode*.app' -print >&2
+            exit 1
+          fi
+          printf 'Выбрана версия Xcode %s из %s\n' "$REQUESTED_XCODE" "$selected_xcode"
+          printf 'DEVELOPER_DIR=%s\n' "$selected_xcode" >> "$GITHUB_ENV"
+          DEVELOPER_DIR="$selected_xcode" xcodebuild -version
+          DEVELOPER_DIR="$selected_xcode" xcrun --sdk iphonesimulator --show-sdk-version
+          uname -m
+      - name: Проверить веб-игру
+        run: node scripts/validate.mjs
+      - name: Собрать приложение для симулятора
+        run: python3 scripts/build_ios.py --target simulator --output artifacts/bukva-za-bukvoy-ios-simulator.zip
+      - name: Сохранить сборку симулятора
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bukva-ios-simulator-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/bukva-za-bukvoy-ios-simulator.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Проверить сборку для устройства без подписи
+        run: python3 scripts/build_ios.py --target device-unsigned --output artifacts/bukva-za-bukvoy-ios-device-unsigned.zip
+      - name: Сохранить неподписанный архив устройства
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bukva-ios-device-unsigned-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/bukva-za-bukvoy-ios-device-unsigned.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Пояснить назначение файлов
+        shell: bash
+        run: |
+          cat <<'SUMMARY' >> "$GITHUB_STEP_SUMMARY"
+          ## Назначение сборок
+
+          - `simulator.zip` содержит universal-приложение для iOS Simulator: arm64 и x86_64. Сборщик проверяет обе архитектуры через lipo. Нужен Mac с совместимыми Xcode и runtime симулятора; физический iPhone этим заданием не проверяется.
+          - `device-unsigned.zip` — **не устанавливаемый архив** для проверки компиляции устройства. Он не является подписанным IPA и не устанавливается на iPhone как APK.
+          - Внутри каждого ZIP находится метаинформация сборки. Подпись, сертификаты, Apple Account и публикация TestFlight в этом workflow не используются.
+
+          Инструкция: `docs/Установка iOS.md`. Артефакты хранятся 14 дней.
+          SUMMARY
