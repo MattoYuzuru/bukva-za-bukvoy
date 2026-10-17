@@ -1,0 +1,12 @@
+.DS_Store
+.work/
+artifacts/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.keystore
+*.jks
+*.log
+node_modules/
+__pycache__/
