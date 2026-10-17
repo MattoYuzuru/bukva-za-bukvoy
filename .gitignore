@@ -10,3 +10,10 @@ android/local.properties
 *.log
 node_modules/
 __pycache__/
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/DerivedData/
+ios/build/
+*.p12
+*.p8
+*.mobileprovision
