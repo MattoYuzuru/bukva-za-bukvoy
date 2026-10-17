@@ -6,6 +6,21 @@ const source = await readFile(new URL('../game/js/app.js', import.meta.url), 'ut
 function functionSource(name, next) {
   return source.slice(source.indexOf(`function ${name}(`), source.indexOf(`function ${next}(`));
 }
+test('WebView выбирает раскладку по видимой области после закрытия системной клавиатуры', () => {
+  for (const [width, height, landscape, compact, short] of [[393,754,false,false,false],[360,560,false,true,true],[844,390,true,true,true]]) {
+    const classes = new Map(), properties = new Map();
+    const scope = {
+      window: { innerWidth: width, innerHeight: height, visualViewport: { width, height, scale: 1 }, __hackathonBridgeInstalled: true, matchMedia: () => { throw new Error('Устаревшая геометрия media query'); } },
+      document: { documentElement: { classList: { toggle: (name, value) => classes.set(name, value) }, style: { setProperty: (name, value) => properties.set(name, value) } } },
+    };
+    vm.runInNewContext(functionSource('fitHeight', 'showScreen') + '\nfitHeight();', scope);
+    assert.equal(classes.get('viewport-landscape'), landscape);
+    assert.equal(classes.get('viewport-compact'), compact);
+    assert.equal(classes.get('viewport-short'), short);
+    assert.equal(classes.get('host-controls'), true);
+    assert.equal(properties.get('--app-height'), `${height}px`);
+  }
+});
 test('выход сразу после победы отменяет отложенный экран результата', () => {
   const shown = [], sent = [], cleared = [];
   const scope = {

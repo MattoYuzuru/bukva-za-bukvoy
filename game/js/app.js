@@ -32,6 +32,17 @@ function setButton(id, symbol, text) {
 function fitHeight() {
   const viewport = window.visualViewport;
   const height = viewport && viewport.scale === 1 ? viewport.height : window.innerHeight;
+  const width = viewport && viewport.scale === 1 ? viewport.width : window.innerWidth;
+  const layout = document.documentElement.classList;
+  // Геометрию берём из видимой области: WebView после системной клавиатуры
+  // может сохранять прежний результат геометрических media query.
+  layout.toggle('viewport-large', width >= 600 && height >= 650);
+  layout.toggle('viewport-compact', height <= 740);
+  layout.toggle('viewport-short', height <= 620);
+  layout.toggle('viewport-landscape', width > height && height <= 600);
+  // Официальная песочница рисует свои кнопки поверх верхнего края WebView.
+  // Проверяем только присутствие уже установленного моста, не запрашивая данные приложения.
+  document.documentElement.classList.toggle('host-controls', Boolean(window.__hackathonBridgeInstalled));
   document.documentElement.style.setProperty('--app-height', `${Math.round(height)}px`);
 }
 function showScreen(name, focus = true) {

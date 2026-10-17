@@ -202,7 +202,7 @@ h1:focus {
   position:relative;
   width:220px;
   margin:6px auto 18px;
-  flex-shrink:1
+  flex-shrink:0
 }
 
 .art-tile {
@@ -1088,310 +1088,302 @@ h1:focus {
   }
 }
 
-@media(min-width:600px) and (min-height:650px) {
-  body {
+.viewport-large body {
     padding:24px
   }
-  .app {
+.viewport-large .app {
     height:min(var(--app-height),900px);
     max-height:calc(100vh - 48px);
     border:1px solid #dce6d4;
     border-radius:30px;
     box-shadow:0 12px 40px #2647290d
   }
-  .modal-layer {
+.viewport-large .modal-layer {
     align-items:center
   }
-}
 
-@media(max-height:740px) {
-  .home-art {
+.viewport-compact .home-art {
     height:105px;
     min-height:85px;
     margin:0 auto 12px;
     transform:scale(.82);
     transform-origin:top center
   }
-  .home-screen {
+.viewport-compact .home-screen {
     padding-top:5px
   }
-  .home-screen h1 {
+.viewport-compact .home-screen h1 {
     font-size:27px
   }
-  .home-intro {
+.viewport-compact .home-intro {
     margin-top:12px;
     font-size:16px
   }
-  .length-picker {
+.viewport-compact .length-picker {
     margin-top:24px
   }
-  .length-option>span {
+.viewport-compact .length-option>span {
     height:61px
   }
-  .start-button {
+.viewport-compact .start-button {
     margin-top:20px
   }
-  .kind-note {
+.viewport-compact .kind-note {
     margin-top:18px;
     padding:14px
   }
-  .home-footnote {
+.viewport-compact .home-footnote {
     padding-top:17px
   }
-  .round-heading {
+.viewport-compact .round-heading {
     padding-top:1px;
     padding-bottom:8px
   }
-  .round-heading h1 {
+.viewport-compact .round-heading h1 {
     font-size:22px
   }
-  .round-right {
+.viewport-compact .round-right {
     gap:6px
   }
-  .round-message {
+.viewport-compact .round-message {
     font-size:11px;
     min-height:29px
   }
-  .key {
+.viewport-compact .key {
     min-height:39px
   }
-  .hint-button {
+.viewport-compact .hint-button {
     min-height:37px
   }
-  .verify-button {
+.viewport-compact .verify-button {
     min-height:42px
   }
-  .legend {
+.viewport-compact .legend {
     margin-top:3px
   }
-  .legend button {
+.viewport-compact .legend button {
     min-height:29px
   }
-  .result-screen {
+.viewport-compact .result-screen {
     padding-top:10px
   }
-  .result-badge {
+.viewport-compact .result-badge {
     width:49px;
     height:49px;
     margin-bottom:17px
   }
-  .result-word {
+.viewport-compact .result-word {
     margin:18px 0 22px
   }
-}
 
-@media(max-height:620px) {
-  .home-art {
+.viewport-short .home-art {
     display:none
   }
-  .home-screen {
+.viewport-short .home-screen {
     padding-top:22px
   }
-  .kind-note {
+.viewport-short .kind-note {
     display:none
   }
-  .home-footnote {
+.viewport-short .home-footnote {
     margin-top:0
   }
-  .round-screen {
+.viewport-short .round-screen {
     padding-left:14px;
     padding-right:14px
   }
-  .round-heading .eyebrow {
+.viewport-short .round-heading .eyebrow {
     display:none
   }
-  .app-header {
+.viewport-short .app-header {
     min-height:50px
   }
-  .key {
+.viewport-short .key {
     min-height:35px;
     font-size:17px
   }
-  .keyboard {
+.viewport-short .keyboard {
     gap:4px
   }
-  .round-right {
+.viewport-short .round-right {
     gap:5px
   }
-  .hint-button {
+.viewport-short .hint-button {
     min-height:35px
   }
-  .verify-button {
+.viewport-short .verify-button {
     min-height:38px
   }
-  .legend button {
+.viewport-short .legend button {
     min-height:27px
   }
-  .round-message {
+.viewport-short .round-message {
     min-height:26px
   }
-  .reveal-button {
+.viewport-short .reveal-button {
     min-height:24px
   }
-  .tile {
+.viewport-short .tile {
     min-height:31px;
     max-height:41px;
     font-size:24px
   }
-}
 
-@media(orientation:landscape) and (max-height:600px) {
-  body {
+.viewport-landscape body {
     padding:0
   }
-  .app {
+.viewport-landscape .app {
     max-width:1000px;
     height:var(--app-height);
     border-radius:0;
     border:0
   }
-  .app-header {
+.viewport-landscape .app-header {
     min-height:44px;
     padding-top:2px;
     padding-bottom:2px
   }
-  .icon-button {
+.viewport-landscape .icon-button {
     height:36px;
     width:38px
   }
-  .round-layout {
+.viewport-landscape .round-layout {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:24px
   }
-  .round-left {
+.viewport-landscape .round-left {
     min-height:0
   }
-  .round-right {
+.viewport-landscape .round-right {
     min-height:0;
     justify-content:center;
     gap:5px
   }
-  .round-screen {
+.viewport-landscape .round-screen {
     padding:0 20px max(5px,env(safe-area-inset-bottom,0px))
   }
-  .round-heading {
+.viewport-landscape .round-heading {
     padding-top:0;
     padding-bottom:5px
   }
-  .round-heading h1 {
+.viewport-landscape .round-heading h1 {
     font-size:20px
   }
-  .attempt-pill {
+.viewport-landscape .attempt-pill {
     padding:5px 9px
   }
-  .round-message {
+.viewport-landscape .round-message {
     font-size:11px;
     min-height:24px
   }
-  .keyboard {
+.viewport-landscape .keyboard {
     gap:4px
   }
-  .key {
+.viewport-landscape .key {
     min-height:31px;
     font-size:16px
   }
-  .hint-button {
+.viewport-landscape .hint-button {
     min-height:33px;
     font-size:11px
   }
-  .hint-button .icon {
+.viewport-landscape .hint-button .icon {
     width:14px;
     height:14px
   }
-  .verify-button {
+.viewport-landscape .verify-button {
     min-height:36px;
     font-size:16px;
     padding:7px
   }
-  .reveal-button {
+.viewport-landscape .reveal-button {
     min-height:22px
   }
-  .board {
+.viewport-landscape .board {
     max-width:330px;
     gap:4px
   }
-  .board-row {
+.viewport-landscape .board-row {
     gap:5px
   }
-  .tile {
+.viewport-landscape .tile {
     max-height:40px;
     min-height:26px;
     aspect-ratio:1.5;
     font-size:23px
   }
-  .legend button {
+.viewport-landscape .legend button {
     min-height:27px
   }
-  .home-screen {
+.viewport-landscape .home-screen {
     max-width:580px;
     margin:auto;
     padding:6px 26px 10px;
     display:block
   }
-  .home-screen .eyebrow {
+.viewport-landscape .home-screen .eyebrow {
     display:none
   }
-  .home-screen h1 {
+.viewport-landscape .home-screen h1 {
     font-size:24px
   }
-  .home-intro {
+.viewport-landscape .home-intro {
     margin-top:8px;
     font-size:14px
   }
-  .home-intro br {
+.viewport-landscape .home-intro br {
     display:none
   }
-  .length-picker {
+.viewport-landscape .length-picker {
     margin-top:15px
   }
-  .length-picker legend {
+.viewport-landscape .length-picker legend {
     font-size:15px;
     margin-bottom:7px
   }
-  .length-option>span {
+.viewport-landscape .length-option>span {
     height:46px;
     font-size:24px;
     border-radius:15px
   }
-  .start-button {
+.viewport-landscape .start-button {
     margin-top:14px;
     min-height:42px
   }
-  .home-footnote {
+.viewport-landscape .home-footnote {
     display:none
   }
-  .result-screen {
+.viewport-landscape .result-screen {
     padding-top:8px;
     max-width:650px;
     margin:auto
   }
-  .result-badge {
+.viewport-landscape .result-badge {
     display:none
   }
-  .result-word {
+.viewport-landscape .result-word {
     margin:12px 0
   }
-  .result-summary {
+.viewport-landscape .result-summary {
     margin:8px 0
   }
-  .word-card {
+.viewport-landscape .word-card {
     padding:14px 18px
   }
-  .result-actions {
+.viewport-landscape .result-actions {
     margin-top:13px
   }
-  .modal-layer {
+.viewport-landscape .modal-layer {
     align-items:center
   }
-  .modal {
+.viewport-landscape .modal {
     max-height:calc(var(--app-height) - 20px);
     padding:22px
   }
-  .modal h2 {
+.viewport-landscape .modal h2 {
     font-size:23px
   }
-}
 
 @media(prefers-reduced-motion:reduce) {
   *,*::before,*::after {
@@ -1400,4 +1392,9 @@ h1:focus {
     transition-duration:.01ms!important;
     scroll-behavior:auto!important
   }
+}
+
+/* Оставляем место под неизменяемые кнопки официального контейнера. */
+.host-controls .app-header {
+  padding-top:calc(env(safe-area-inset-top,0px) + 50px)
 }
