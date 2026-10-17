@@ -1,0 +1,12 @@
+{
+  "name": "bukva-za-bukvoy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Развивающая игра со словами для детей",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/validate.mjs"
+  },
+  "engines": { "node": ">=24" }
+}

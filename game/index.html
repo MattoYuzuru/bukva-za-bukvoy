@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f8f2">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'">
+  <meta name="description" content="Ищи слово по буквенным уликам. Короткие раунды, понятные подсказки и маленькие открытия.">
+  <title>Буква за буквой</title>
+  <link rel="icon" href="./assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./js/app.js"></script>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="app-header">
+      <button class="icon-button" id="back-button" type="button" aria-label="Выйти из игры" title="Выйти из игры"></button>
+      <a class="brand" href="#" id="brand" aria-label="Буква за буквой — главный экран"><img src="./assets/logo.svg" width="28" height="28" alt=""><span>Буква за буквой</span></a>
+      <div class="header-actions">
+        <button class="icon-button" id="help-button" type="button" aria-label="Как играть" title="Как играть"></button>
+        <button class="icon-button" id="sound-button" type="button" aria-label="Включить звук" aria-pressed="false" title="Включить звук"></button>
+      </div>
+    </header>
+
+    <main id="main" class="main">
+      <section id="home-screen" class="screen home-screen" aria-labelledby="home-title">
+        <div class="home-art" aria-hidden="true"><span class="art-tile art-one">А</span><span class="art-tile art-two">Б</span><span class="art-tile art-three">В</span><span class="art-spark" id="art-spark"></span></div>
+        <p class="eyebrow">Маленькие открытия</p>
+        <h1 id="home-title" tabindex="-1">Слово спряталось.<br>Найдём его?</h1>
+        <p class="home-intro">Смотри на буквы, ищи подсказки<br class="wide-only"> и проверяй свои догадки.</p>
+        <fieldset class="length-picker">
+          <legend>Сколько букв попробуем?</legend>
+          <div class="length-options" id="length-options">
+            <label class="length-option"><input type="radio" name="length" value="4" checked><span>4<span class="sr-only"> буквы</span></span></label>
+            <label class="length-option"><input type="radio" name="length" value="5"><span>5<span class="sr-only"> букв</span></span></label>
+            <label class="length-option"><input type="radio" name="length" value="6"><span>6<span class="sr-only"> букв</span></span></label>
+            <label class="length-option"><input type="radio" name="length" value="7"><span>7<span class="sr-only"> букв</span></span></label>
+          </div>
+        </fieldset>
+        <button id="start-button" class="button primary start-button" type="button" disabled>Готовим слова…</button>
+        <div class="kind-note"><span id="kind-icon" aria-hidden="true"></span><p>Здесь можно пробовать.<br>Подсказки всегда рядом.</p></div>
+        <p class="home-footnote">Один раунд — одно открытие</p>
+      </section>
+
+      <section id="round-screen" class="screen round-screen" aria-labelledby="round-title" hidden>
+        <div class="round-layout">
+          <div class="round-left">
+            <div class="round-heading"><div><p class="eyebrow" id="round-theme"></p><h1 id="round-title" tabindex="-1"></h1></div><span class="attempt-pill" id="attempt-label"></span></div>
+            <div class="board-scroll" id="board-scroll" tabindex="0" aria-label="Поле попыток. Предыдущие строки можно прокрутить"><div class="board" id="board" role="group" aria-label="Попытки угадать слово"></div></div>
+            <div class="legend" id="legend" aria-label="Что означают цвета"><button type="button" data-legend="exact"><span class="legend-mark exact"></span>На месте</button><button type="button" data-legend="present"><span class="legend-mark present"></span>Другое место</button><button type="button" data-legend="absent"><span class="legend-mark absent"></span>Буквы нет</button></div>
+          </div>
+          <div class="round-right">
+            <p class="round-message" id="round-message" role="status" aria-live="polite" aria-atomic="true">Начни с любого знакомого слова.</p>
+            <div class="hint-buttons" aria-label="Подсказки"><button type="button" class="hint-button hint-letter" id="hint-letter"></button><button type="button" class="hint-button hint-riddle" id="hint-riddle"></button><button type="button" class="hint-button hint-meaning" id="hint-meaning"></button></div>
+            <button class="button primary verify-button" id="verify-button" type="button">Проверим!</button>
+            <div class="keyboard" id="keyboard" role="group" aria-label="Русская клавиатура"></div>
+            <button class="quiet-button reveal-button" id="reveal-button" type="button">Открыть слово вместе</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="result-screen" class="screen result-screen" aria-labelledby="result-title" hidden>
+        <div class="result-badge" id="result-badge" aria-hidden="true"></div>
+        <p class="eyebrow" id="result-eyebrow">Вот это открытие</p>
+        <h1 id="result-title" tabindex="-1"></h1>
+        <p id="result-summary" class="result-summary"></p>
+        <div class="result-word" id="result-word" aria-label="Загаданное слово"></div>
+        <div class="word-card"><p class="eyebrow">Теперь мы знаем</p><p id="result-meaning"></p><div class="discovery"><span id="discovery-icon" aria-hidden="true"></span><p id="result-fact"></p></div></div>
+        <div class="result-actions"><button class="button primary" id="again-button" type="button"></button><button class="button secondary" id="share-button" type="button"></button><button class="quiet-button" id="choose-button" type="button">Выбрать другую длину</button></div>
+        <button class="quiet-button exit-button" id="exit-button" type="button">Закончить игру</button>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </div>
+  <div class="modal-layer" id="modal-layer" hidden><div class="modal-backdrop" id="modal-backdrop"></div><section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1"><button type="button" class="icon-button modal-close" id="modal-close" aria-label="Закрыть подсказку"></button><div id="modal-content"></div></section></div>
+  <noscript><p class="noscript">Чтобы играть, нужно включить JavaScript в настройках браузера.</p></noscript>
+</body>
+</html>

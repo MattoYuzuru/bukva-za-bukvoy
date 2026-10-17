@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Буква за буквой</string>
+    <color name="background">#F5F7F4</color>
+</resources>

@@ -15,6 +15,7 @@
 
 - Node 24: `node --test tests/*.test.js`.
 - Целостность данных и изоляция: `node scripts/validate.mjs`.
+- Упаковка: `python3 -m unittest discover -s tests -p 'test_*.py'`, затем `python3 scripts/package_game.py`.
 - Локальный запуск: `python3 scripts/serve.py --port 8877`.
 - Сборка автономного APK: `python3 scripts/build_android.py` с JDK 21 и Android SDK (параметры в `docs/Сборка.md`).
 - Итоговые тяжёлые проверки запускать через `/Users/yuzuru/.agents/skills/workstation-dev/scripts/dev.py` с `--resource heavy`, общая директория состояния `/Users/yuzuru/.local/state/agent-dev`.
