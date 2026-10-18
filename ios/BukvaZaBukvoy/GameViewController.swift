@@ -16,14 +16,22 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDele
     var pendingChallenge: String?
 
     static func challengeCode(from url: URL) -> String? {
-        guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+        guard url.absoluteString.utf8.count <= 160,
+              let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
               parts.scheme?.lowercased() == "bukvazabukvoy", parts.host?.lowercased() == "challenge",
               parts.user == nil, parts.password == nil, parts.port == nil,
               parts.query == nil, parts.fragment == nil else { return nil }
         let path = url.pathComponents.filter { $0 != "/" }
         guard path.count == 1 else { return nil }
         let code = path[0].uppercased()
-        return code.range(of: "^BB1-[A-F0-9]{8}$", options: .regularExpression) != nil ? code : nil
+        return code.utf8.count == 12 && code.range(of: "^BB1-[A-F0-9]{8}$", options: .regularExpression) != nil ? code : nil
+    }
+
+    private func documentURL(_ url: URL?) -> URL? {
+        guard let url = url, url.isFileURL,
+              var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        parts.fragment = nil
+        return parts.url?.standardizedFileURL
     }
 
     func openChallenge(_ url: URL) {
@@ -174,7 +182,7 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDele
 
     fileprivate func receive(_ message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.webView === webView,
-              let frameURL = message.frameInfo.request.url?.standardizedFileURL,
+              let frameURL = documentURL(message.frameInfo.request.url),
               frameURL.isFileURL, frameURL == entryURL,
               let string = message.body as? String, string.utf8.count <= 3 * 1024 * 1024,
               let data = string.data(using: .utf8),

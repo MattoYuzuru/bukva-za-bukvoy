@@ -131,7 +131,7 @@ public final class MainActivity extends Activity {
     private static String challengeFrom(Intent intent) {
         if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return null;
         Uri uri = intent.getData();
-        if (uri == null || !"bukvazabukvoy".equalsIgnoreCase(uri.getScheme())
+        if (uri == null || uri.toString().length() > 160 || !"bukvazabukvoy".equalsIgnoreCase(uri.getScheme())
             || !"challenge".equalsIgnoreCase(uri.getHost()) || uri.getUserInfo() != null
             || uri.getPort() != -1 || uri.getQuery() != null || uri.getFragment() != null
             || uri.getPathSegments().size() != 1) return null;

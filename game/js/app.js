@@ -481,7 +481,8 @@ function shareResult() {
   if (!round) return;
   const image = resultImage();
   const code = challengeCode(round.entry.id);
-  const text = `Буква за буквой. ${round.status === 'won' ? `Я нашёл слово ${formatGuesses(round.history.length)}${round.hints.size ? ' с подсказками' : ''}` : 'Я узнал новое слово'}! Угадай то же слово.\nКод: ${code}\nВ игре нажми «Слово друга» или открой ссылку в приложении «Буква за буквой»:\nbukvazabukvoy://challenge/${code}`;
+  const ownApp = Boolean(window.BukvaNative || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bukvaBridge));
+  const text = `Буква за буквой. ${round.status === 'won' ? `Я нашёл слово ${formatGuesses(round.history.length)}${round.hints.size ? ' с подсказками' : ''}` : 'Я узнал новое слово'}! Угадай то же слово.\nКод: ${code}\nВ игре нажми «Слово друга» и введи код.${ownApp ? `\nВ приложении «Буква за буквой»:\nbukvazabukvoy://challenge/${code}` : ''}`;
   openModal(`<div class="modal-accent">${icon('share')}</div><h2 id="modal-title">Слово для друга</h2>${image ? '<img class="share-preview" id="share-preview" alt="Карточка с числом догадок и кодом слова, без ответа">' : ''}<p class="tutorial-note">Друг получит то же слово. Ответ на карточке не показан.</p><button type="button" class="button primary" id="share-now">Поделиться</button><button type="button" class="quiet-button" id="share-close">К результату</button>`);
   if (image) byId('share-preview').src = image;
   byId('share-now').onclick = () => bridge.share(text, image);
