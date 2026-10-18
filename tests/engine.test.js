@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { ALPHABET, MAX_ATTEMPTS, Round, evaluateGuess, explainCell, keyboardKnowledge, normalizeWord } from '../game/js/engine.js';
+import { ALPHABET, VISIBLE_ROWS, Round, evaluateGuess, explainCell, keyboardKnowledge, normalizeWord } from '../game/js/engine.js';
 import { validateContent } from '../game/js/content.js';
 const raw = JSON.parse(await readFile(new URL('../game/data/words.json', import.meta.url)));
 const content = validateContent(raw);
@@ -56,21 +56,30 @@ test('ввод можно исправить выбором позиции и у
   round.insert('А'); assert.equal(round.submit().status, 'won');
   assert.equal(round.insert('Б'), false); assert.equal(round.erase(), false);
 });
-test('в шестой попытке ещё можно выиграть, седьмой попытки нет', () => {
+test('можно выиграть после нескольких догадок, после победы ввод закрыт', () => {
   const guesses = ['ЛУНА', 'РЕКА', 'СОВА', 'МЫЛО', 'НОГА'];
   const round = roundFor('ЛИСА', guesses);
   for (const word of [...guesses, 'ЛИСА']) { enter(round, word); assert.equal(round.submit().ok, true); }
-  assert.equal(round.history.length, MAX_ATTEMPTS); assert.equal(round.status, 'won');
+  assert.equal(round.history.length, 6); assert.equal(round.status, 'won');
   assert.equal(round.submit().reason, 'finished');
 });
-test('шесть неудачных догадок ведут к помощи, открытие не становится победой', () => {
+test('после шести догадок можно думать дальше или открыть ответ вместе', () => {
   const guesses = ['ЛУНА', 'РЕКА', 'СОВА', 'МЫЛО', 'НОГА', 'РУКА'];
   const round = roundFor('ЛИСА', guesses);
   for (const word of guesses) { enter(round, word); round.submit(); }
-  assert.equal(round.status, 'exhausted');
-  assert.equal(round.letterHint(), null); assert.equal(round.insert('А'), false);
-  assert.equal(round.reveal(), true); assert.equal(round.status, 'revealed');
-  assert.equal(round.reveal(), false); assert.equal(round.submit().reason, 'finished');
+  assert.equal(round.status, 'playing');
+  assert.equal(VISIBLE_ROWS, 3);
+  assert.ok(round.letterHint(() => 0));
+  Array.from(round.answer).forEach((letter, index) => {
+    if (!round.revealed[index]) { round.select(index); round.insert(letter); }
+  });
+  assert.equal(round.submit().status, 'won');
+  assert.equal(round.reveal(), false);
+  const another = roundFor('ЛИСА', guesses);
+  for (const word of guesses) { enter(another, word); another.submit(); }
+  assert.equal(another.reveal(), true); assert.equal(another.status, 'revealed');
+  assert.equal(another.submit().reason, 'finished');
+  assert.equal(another.reveal(), false);
 });
 test('одна подсказка открывает неизвестную позицию и не меняет историю', () => {
   const round = roundFor('ЛАМПА', ['ПАПКА']);

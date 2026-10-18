@@ -17,8 +17,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = GameViewController()
+        let game = GameViewController()
+        if let url = options.urlContexts.map({ $0.url }).first(where: { GameViewController.challengeCode(from: $0) != nil }) {
+            game.openChallenge(url)
+        }
+        window.rootViewController = game
         window.makeKeyAndVisible()
         self.window = window
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard let game = window?.rootViewController as? GameViewController,
+              let url = URLContexts.map({ $0.url }).first(where: { GameViewController.challengeCode(from: $0) != nil }) else { return }
+        game.openChallenge(url)
     }
 }

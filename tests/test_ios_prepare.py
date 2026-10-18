@@ -34,7 +34,8 @@ class IOSPreparationTests(unittest.TestCase):
             for name in ("engine.js", "content.js"):
                 chunks.append(PACKER.pack_module(name, (source / "js" / name).read_text(), available, words))
             chunks.append("__BUKVA_IOS_MODULES['content.js'].loadContent().then(c => console.log(JSON.stringify({words:c.words.length, accepted:c.accepted.size, fallback:c.fallback})));\n")
-            result = subprocess.run(["node", "-e", "".join(chunks)], check=True, text=True, capture_output=True)
+            result = subprocess.run(["node", "--input-type=commonjs"], input="".join(chunks),
+                                    check=True, text=True, capture_output=True)
             loaded = json.loads(result.stdout)
             self.assertEqual(loaded, {"words": len(raw["words"]), "accepted": len(set(raw["accepted"])), "fallback": False})
             self.assertEqual(manifest["canonicalFilesSha256"], before)

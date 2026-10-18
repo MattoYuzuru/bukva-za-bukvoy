@@ -1,4 +1,4 @@
-import { normalizeWord } from './engine.js';
+import { normalizeWord, challengeCode } from './engine.js';
 
 // Авторский запасной набор остаётся доступен при повреждении или задержке словаря.
 export const FALLBACK_CONTENT = {
@@ -848,6 +848,7 @@ export function validateContent(raw) {
   if (!Array.isArray(raw.accepted) || !raw.accepted.length) fail('нет допустимых догадок');
 
   const ids = new Set();
+  const codes = new Set();
   const answers = new Set();
   const lengths = new Set();
   const words = raw.words.map((entry) => {
@@ -855,6 +856,9 @@ export function validateContent(raw) {
     const id = textField(entry.id, 'id', 64);
     const word = russianWord(entry.word, 'word');
     if (ids.has(id)) fail(`повторяется идентификатор ${id}`);
+    const code = challengeCode(id);
+    if (codes.has(code)) fail('совпали коды приглашений: измените идентификатор карточки');
+    codes.add(code);
     if (answers.has(word)) fail(`повторяется ответ ${word}`);
     ids.add(id);
     answers.add(word);

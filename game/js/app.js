@@ -1,4 +1,4 @@
-import { ALPHABET, MAX_ATTEMPTS, Round, keyboardKnowledge, normalizeWord, explainCell } from './engine.js';
+import { ALPHABET, VISIBLE_ROWS, Round, keyboardKnowledge, normalizeWord, explainCell, challengeCode, normalizeChallenge, findChallenge, formatGuesses } from './engine.js';
 import { loadContent } from './content.js';
 import { icon } from './icons.js';
 import { createBridge } from './bridge.js';
@@ -6,7 +6,7 @@ import { createBridge } from './bridge.js';
 const byId = (id) => document.getElementById(id);
 const bridge = createBridge();
 const screens = ['home', 'round', 'result'];
-const keyboardRows = ['АБВГДЕЁЖЗ', 'ИЙКЛМНОПР', 'СТУФХЦЧШЩ', 'ЪЫЬЭЮЯ'];
+const keyboardRows = ['ЙЦУКЕНГШЩЗХЪ', 'ФЫВАПРОЛДЖЭ', 'ЯЧСМИТЬБЮЁ'];
 const names = { exact: 'на своём месте', present: 'есть в другом месте', absent: 'буквы нет' };
 const markNames = { exact: 'check', present: 'move', absent: 'absent' };
 let content = null;
@@ -21,6 +21,9 @@ let toastTimer = null;
 let resultTimer = null;
 let soundEnabled = false;
 let audioContext = null;
+let audioStep = 0;
+let previewTimer = null;
+let previewDismissed = false;
 const played = new Set();
 
 function escapeText(value) {
@@ -46,13 +49,19 @@ function fitHeight() {
   document.documentElement.style.setProperty('--app-height', `${Math.round(height)}px`);
 }
 function showScreen(name, focus = true) {
+  stopPreview();
   screen = name;
+  byId('app').dataset.screen = name;
+  byId('reveal-button').hidden = name !== 'round';
   screens.forEach((item) => { byId(`${item}-screen`).hidden = item !== name; });
   byId('back-button').setAttribute('aria-label', name === 'home' ? 'Выйти из игры' : 'К выбору длины слова');
   byId('back-button').title = name === 'home' ? 'Выйти из игры' : 'К выбору длины слова';
   if (focus) byId(`${name === 'round' ? 'round' : name === 'result' ? 'result' : 'home'}-title`).focus({ preventScroll: true });
 }
-function message(text) { byId('round-message').textContent = text; }
+function message(text) {
+  byId('round-message').textContent = text;
+  byId('round-theme').hidden = Boolean(text);
+}
 function toast(text) {
   clearTimeout(toastTimer);
   byId('toast').textContent = text;
@@ -61,20 +70,31 @@ function toast(text) {
 }
 function tone(kind = 'tap') {
   if (!soundEnabled || !audioContext) return;
-  const frequencies = kind === 'win' ? [523.25, 659.25, 783.99] : kind === 'hint' ? [659.25] : [440];
+  // Тихий щипок с затухающими обертонами: разные тембры ввода и стирания.
+  const frequencies = kind === 'win' ? [523.25, 659.25, 783.99, 1046.5]
+    : kind === 'hint' ? [659.25, 880] : kind === 'erase' ? [293.66]
+      : [523.25, 587.33, 659.25, 783.99][audioStep++ % 4];
   const start = audioContext.currentTime;
-  frequencies.forEach((frequency, index) => {
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.value = frequency;
-    const time = start + index * 0.1;
-    gain.gain.setValueAtTime(0, time);
-    gain.gain.linearRampToValueAtTime(kind === 'tap' ? 0.025 : 0.055, time + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.13);
-    oscillator.connect(gain); gain.connect(audioContext.destination);
-    oscillator.start(time); oscillator.stop(time + 0.15);
-    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  (Array.isArray(frequencies) ? frequencies : [frequencies]).forEach((frequency, index) => {
+    const time = start + index * 0.12;
+    const duration = kind === 'tap' || kind === 'erase' ? 0.12 : 0.32;
+    const filter = audioContext.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = kind === 'erase' ? 900 : 2200;
+    filter.Q.value = 0.5; filter.connect(audioContext.destination);
+    [1, 2.76].forEach((ratio, partial) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = partial ? 'sine' : 'triangle';
+      oscillator.frequency.setValueAtTime(frequency * ratio, time);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * ratio * 0.985, time + duration);
+      const level = (kind === 'tap' || kind === 'erase' ? 0.035 : 0.055) * (partial ? 0.16 : 1);
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(level, time + 0.009);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+      oscillator.connect(gain); gain.connect(filter);
+      oscillator.start(time); oscillator.stop(time + duration + 0.02);
+      oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); if (partial) filter.disconnect(); };
+    });
   });
 }
 async function toggleSound() {
@@ -96,6 +116,7 @@ async function toggleSound() {
 }
 
 function openModal(html, closeCallback = null) {
+  stopPreview();
   if (!byId('modal-layer').hidden) closeModal(false);
   lastFocus = document.activeElement;
   onModalClose = closeCallback;
@@ -113,15 +134,15 @@ function closeModal(restore = true) {
   onModalClose = null;
   if (restore && lastFocus && lastFocus.isConnected) lastFocus.focus({ preventScroll: true });
   if (callback) callback();
+  if (restore) startPreview();
 }
 function showRules() {
   tutorialSeen = true;
-  openModal(`<div class="modal-accent">${icon('question')}</div><h2 id="modal-title">Как поймать слово</h2>
-    <div class="tutorial-card"><span class="tutorial-tile exact">А</span><p><strong>На своём месте</strong>Оставь эту букву здесь.</p></div>
-    <div class="tutorial-card"><span class="tutorial-tile present">Б</span><p><strong>Нужно другое место</strong>Буква есть в слове. Переставь её.</p></div>
-    <div class="tutorial-card"><span class="tutorial-tile absent">В</span><p><strong>Буквы нет в слове</strong>Попробуй другую. Повторная буква может оказаться лишней.</p></div>
-    <p class="tutorial-note">Нажми на проверенную букву — она расскажет, что делать дальше. Подсказки не отнимают попытки.</p>
-    <button type="button" class="button primary" id="rules-done">Попробуем!</button>`);
+  openModal(`<h2 id="modal-title">Угадай слово</h2><p class="rules-intro"><strong>Прочитай загадку.<br>Напиши ответ и нажми «Проверим!»</strong></p>
+    <div class="tutorial-card"><span class="tutorial-tile exact">А</span><p><strong>Оставь на месте</strong></p></div>
+    <div class="tutorial-card"><span class="tutorial-tile present">Б</span><p><strong>Переставь букву</strong></p></div>
+    <div class="tutorial-card"><span class="tutorial-tile absent">В</span><p><strong>Попробуй другую</strong></p></div>
+    <button type="button" class="button primary" id="rules-done">Играем!</button>`);
   byId('rules-done').onclick = () => closeModal();
 }
 function leaveRound(toHome = true) {
@@ -148,24 +169,116 @@ function chooseEntry(length) {
     entries.forEach((entry) => played.delete(entry.id));
     pool = entries;
   }
+  if (!played.size) {
+    const learning = pool.filter((entry) => ['Деньги', 'Безопасность', 'Дружба'].includes(entry.theme));
+    if (learning.length) pool = learning;
+  }
   return pool[Math.floor(Math.random() * pool.length)];
 }
-function startRound() {
+function startRound(invited = null) {
   if (!content) return;
   closeModal(false);
   clearTimeout(resultTimer);
-  const entry = chooseEntry(chosenLength);
+  const entry = invited || chooseEntry(chosenLength);
+  chosenLength = entry.word.length;
+  byId('length-options').querySelector(`input[value="${chosenLength}"]`).checked = true;
   round = new Round(entry, content.accepted);
+  previewDismissed = false;
   roundId += 1;
   played.add(entry.id);
   byId('round-theme').textContent = entry.theme;
-  byId('round-title').textContent = `Слово из ${round.length} букв`;
+  byId('round-title').textContent = entry.riddle;
   byId('board').style.setProperty('--length', String(round.length));
   byId('board-scroll').scrollTop = 0;
-  message('Начни с любого знакомого слова.');
+  message('');
   showScreen('round');
   renderRound(true);
   if (!tutorialSeen) showRules();
+  else startPreview();
+}
+
+function openChallenge(value) {
+  if (!content) return false;
+  const entry = findChallenge(content.words, value);
+  if (!entry) {
+    const text = content.fallback ? 'Не получилось загрузить слово друга. Открой игру ещё раз.' : 'Код не найден. Проверь его или обнови игру.';
+    const error = byId('friend-error');
+    if (error && !byId('modal-layer').hidden) error.textContent = text;
+    else toast(text);
+    return false;
+  }
+  const begin = () => {
+    if (round && screen === 'round') bridge.finish(roundId);
+    startRound(entry);
+  };
+  if (screen === 'round' && round && round.status === 'playing') {
+    openModal(`<h2 id="modal-title">Сыграем слово друга?</h2><p>Текущий раунд закончится.</p><button type="button" class="button primary" id="friend-start">Слово друга</button><button type="button" class="button secondary" id="friend-stay">Останусь здесь</button>`);
+    byId('friend-start').onclick = begin;
+    byId('friend-stay').onclick = () => closeModal();
+  } else begin();
+  return true;
+}
+function showFriendEntry() {
+  openModal(`<h2 id="modal-title">Слово друга</h2><form id="friend-form"><label class="friend-label" for="friend-code">Код или ссылка друга</label><input id="friend-code" class="friend-input" type="text" maxlength="128" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="BB1-1234ABCD"><p id="friend-error" class="friend-error" role="status"></p><button type="submit" class="button primary">Открыть слово</button></form>`);
+  byId('friend-form').onsubmit = (event) => { event.preventDefault(); openChallenge(byId('friend-code').value); };
+}
+function readChallengeHash() {
+  const value = new URLSearchParams(window.location.hash.slice(1)).get('challenge');
+  if (value !== null) {
+    if (normalizeChallenge(value)) openChallenge(value);
+    else toast('Код не найден. Проверь приглашение друга.');
+  }
+}
+
+function stopPreview(dismiss = false) {
+  clearTimeout(previewTimer); previewTimer = null;
+  if (dismiss) previewDismissed = true;
+  byId('board').querySelectorAll('.ghost-letter').forEach((letter) => letter.remove());
+}
+function startPreview() {
+  stopPreview();
+  if (previewDismissed || document.hidden || screen !== 'round' || !round || round.status !== 'playing'
+    || round.history.length || round.input.some(Boolean) || !byId('modal-layer').hidden) return;
+  // Только авторские знакомые слова, никогда не массовый словарь и не ответ.
+  const examples = content.words.map((entry) => entry.word).filter((word) => word.length === round.length
+    && word.replace(/Ё/g, 'Е') !== round.answer.replace(/Ё/g, 'Е'));
+  if (!examples.length) return;
+  const first = Math.floor(Math.random() * examples.length);
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let cycle = 0, position = 0, erasing = false;
+  const paint = () => {
+    byId('board').querySelectorAll('.ghost-letter').forEach((letter) => letter.remove());
+    const word = examples[(first + cycle) % examples.length];
+    byId('board').querySelectorAll('[data-current] .tile').forEach((tile, index) => {
+      if (index >= position) return;
+      const ghost = document.createElement('span'); ghost.className = 'ghost-letter';
+      ghost.setAttribute('aria-hidden', 'true'); ghost.textContent = word[index]; tile.appendChild(ghost);
+    });
+  };
+  if (reduced) { position = round.length; paint(); return; }
+  const step = () => {
+    position += erasing ? -1 : 1;
+    paint();
+    let delay = erasing ? 110 : 210;
+    if (position === round.length) { erasing = true; delay = 1200; }
+    if (position === 0) {
+      cycle += 1; erasing = false; delay = 650;
+      // Два примера, затем тишина: анимация не соревнуется с загадкой за внимание.
+      if (cycle === 2) { previewTimer = null; return; }
+    }
+    previewTimer = setTimeout(step, delay);
+  };
+  previewTimer = setTimeout(step, 1100);
+}
+
+function insertLetter(letter) {
+  stopPreview(true);
+  if (round.insert(letter)) { message(''); tone(); renderRound(); return true; }
+  message('Нажми «Проверим!»'); return false;
+}
+function eraseLetter() {
+  stopPreview(true);
+  if (round.erase()) { message(''); tone('erase'); renderRound(); }
 }
 
 function buildKeyboard() {
@@ -179,7 +292,7 @@ function buildKeyboard() {
       key.textContent = letter; key.setAttribute('aria-label', `Буква ${letter}`);
       row.appendChild(key);
     });
-    if (rowIndex === 3) {
+    if (rowIndex === keyboardRows.length - 1) {
       const erase = document.createElement('button');
       erase.type = 'button'; erase.className = 'key erase-key'; erase.dataset.erase = 'true';
       erase.innerHTML = icon('erase'); erase.setAttribute('aria-label', 'Стереть букву'); row.appendChild(erase);
@@ -189,16 +302,16 @@ function buildKeyboard() {
   holder.addEventListener('click', (event) => {
     const key = event.target.closest('button');
     if (!key || key.disabled || !round) return;
-    if (key.dataset.erase) { if (round.erase()) { tone(); renderRound(); } }
-    else if (round.insert(key.dataset.letter)) { tone(); renderRound(); }
-    else message('Слово готово. Нажми «Проверим!» или выбери клетку для исправления.');
+    if (key.dataset.erase) eraseLetter();
+    else insertLetter(key.dataset.letter);
   });
 }
 function renderRound(scroll = false) {
   if (!round) return;
   const board = byId('board');
   board.replaceChildren();
-  for (let rowIndex = 0; rowIndex < MAX_ATTEMPTS; rowIndex += 1) {
+  const firstRow = Math.max(0, round.history.length - VISIBLE_ROWS + 1);
+  for (let rowIndex = firstRow; rowIndex < firstRow + VISIBLE_ROWS; rowIndex += 1) {
     const row = document.createElement('div'); row.className = 'board-row';
     const checked = round.history[rowIndex];
     const current = rowIndex === round.history.length && round.status === 'playing';
@@ -226,7 +339,7 @@ function renderRound(scroll = false) {
         if (round.revealed[column]) {
           const mark = document.createElement('span'); mark.className = 'tile-mark'; mark.innerHTML = icon('lock'); tile.appendChild(mark);
           tile.onclick = () => toast('Эту букву открыла подсказка. Она уже на своём месте.');
-        } else tile.onclick = () => { round.select(column); renderRound(); byId('board').querySelectorAll('[data-current] .tile')[column].focus({ preventScroll: true }); };
+        } else tile.onclick = () => { stopPreview(true); round.select(column); renderRound(); byId('board').querySelectorAll('[data-current] .tile')[column].focus({ preventScroll: true }); };
       } else tile.setAttribute('aria-hidden', 'true');
       row.appendChild(tile);
     }
@@ -239,12 +352,10 @@ function renderRound(scroll = false) {
     key.setAttribute('aria-label', `Буква ${letter}${knowledge[letter] ? `, ${names[knowledge[letter]]}` : ''}`);
   });
   byId('keyboard').querySelector('[data-erase]').disabled = round.status !== 'playing';
-  byId('attempt-label').textContent = round.status === 'playing' ? `${round.history.length + 1} из ${MAX_ATTEMPTS}` : `${round.history.length} из ${MAX_ATTEMPTS}`;
-  byId('verify-button').textContent = round.status === 'exhausted' ? 'Откроем слово вместе' : 'Проверим!';
-  byId('verify-button').disabled = round.status !== 'playing' && round.status !== 'exhausted';
+  byId('verify-button').disabled = round.status !== 'playing';
   setButton('hint-letter', round.letterHintUsed ? 'lock' : 'letter', round.letterHintUsed ? 'Твоя буква' : 'Буква');
   byId('hint-letter').setAttribute('aria-label', round.letterHintUsed ? 'Посмотреть открытую букву' : 'Подсказка: открыть одну букву');
-  ['hint-letter', 'hint-riddle', 'hint-meaning'].forEach((id) => { byId(id).disabled = round.status !== 'playing'; });
+  ['hint-letter', 'hint-meaning'].forEach((id) => { byId(id).disabled = round.status !== 'playing'; });
   byId('reveal-button').hidden = round.status !== 'playing';
   if (scroll) requestAnimationFrame(() => {
     const target = board.querySelector('[data-current]') || board.children[Math.max(0, round.history.length - 1)];
@@ -258,13 +369,13 @@ function renderRound(scroll = false) {
 }
 function submit() {
   if (!round || screen !== 'round') return;
-  if (round.status === 'exhausted') { revealAnswer(); return; }
+  stopPreview(true);
   const result = round.submit();
   if (!result.ok) {
     const feedback = {
-      incomplete: 'Нужно заполнить все клетки. Попробуй добавить буквы.',
-      unknown: 'Пока не знаем такое слово. Проверь буквы или попробуй другое.',
-      repeated: 'Это слово уже проверяли. Попробуй новую догадку.',
+      incomplete: 'Добавь буквы в пустые клетки.',
+      unknown: 'Словарь не знает это слово. Попробуй другое.',
+      repeated: 'Уже пробовали! Напиши другое слово.',
     };
     if (feedback[result.reason]) {
       message(feedback[result.reason]);
@@ -277,19 +388,14 @@ function submit() {
     message('Нашли слово! Сейчас посмотрим, что оно значит.'); tone('win');
     bridge.finish(roundId); bridge.complete();
     resultTimer = setTimeout(showResult, 600);
-  } else if (result.status === 'exhausted') {
-    message('Проверили шесть догадок. Давай узнаем слово вместе.');
   } else {
-    const exact = result.states.filter((state) => state === 'exact').length;
-    const present = result.states.filter((state) => state === 'present').length;
-    if (present) message('Есть буква для другого места. Нажми на неё и посмотри улику.');
-    else if (exact) message('Есть буквы на своих местах. Сохрани их в новой догадке.');
-    else message('Эти буквы не подошли. Давай попробуем другие.');
+    message('');
     tone('hint');
   }
 }
 function letterHint() {
   if (!round || round.status !== 'playing') return;
+  stopPreview(true);
   let hint;
   if (round.letterHintUsed) {
     const position = Number(Object.keys(round.revealed)[0]);
@@ -326,7 +432,7 @@ function showResult() {
   byId('result-badge').innerHTML = icon(won ? 'check' : 'book');
   byId('result-eyebrow').textContent = won ? 'Вот это открытие' : 'Узнаём новое';
   byId('result-title').textContent = won ? 'Слово нашлось!' : 'Вот какое слово';
-  byId('result-summary').textContent = won ? (round.hints.size ? 'Собрали буквы вместе с подсказками.' : 'Твои догадки привели к ответу.') : 'Теперь мы знаем его. Попробуем ещё одно?';
+  byId('result-summary').textContent = won ? `Нашли ${formatGuesses(round.history.length)}${round.hints.size ? ' с подсказками' : ''}!` : 'Теперь мы знаем его. Попробуем ещё одно?';
   const holder = byId('result-word'); holder.replaceChildren();
   Array.from(round.answer).forEach((letter) => {
     const tile = document.createElement('span'); tile.className = 'result-letter'; tile.textContent = letter; holder.appendChild(tile);
@@ -349,9 +455,10 @@ function resultImage() {
   context.textAlign = 'center'; context.fillStyle = '#193e31'; context.font = 'bold 37px Arial'; context.fillText('Буква за буквой', 360, 112);
   context.fillStyle = '#657960'; context.font = '25px Arial'; context.fillText(`Слово из ${round.length} букв`, 360, 159);
   const cell = round.length > 6 ? 66 : 72; const gap = 10; const start = (720 - (cell + gap) * round.length + gap) / 2;
-  for (let row = 0; row < MAX_ATTEMPTS; row += 1) {
+  const sharedHistory = round.history.slice(-6);
+  for (let row = 0; row < 6; row += 1) {
     for (let column = 0; column < round.length; column += 1) {
-      const state = round.history[row] ? round.history[row].states[column] : '';
+      const state = sharedHistory[row] ? sharedHistory[row].states[column] : '';
       const fill = state === 'exact' ? '#21a038' : state === 'present' ? '#ffd396' : state === 'absent' ? '#e4e9e1' : '#f4f7f0';
       const x = start + column * (cell + gap); const y = 212 + row * 74;
       roundedRect(context, x, y, cell, 60, 13, fill);
@@ -365,15 +472,18 @@ function resultImage() {
       }
     }
   }
-  context.fillStyle = '#274e33'; context.font = 'bold 27px Arial'; context.fillText(round.status === 'won' ? 'Слово нашлось!' : 'Ещё одно открытие', 360, 719);
-  context.fillStyle = '#687b62'; context.font = '21px Arial'; context.fillText('Попробуй поискать слово по буквам', 360, 760);
+  context.fillStyle = '#274e33'; context.font = 'bold 27px Arial'; context.fillText(round.status === 'won' ? `Нашёл ${formatGuesses(round.history.length)}!` : 'Ещё одно открытие', 360, 710);
+  context.fillStyle = '#496443'; context.font = 'bold 24px Arial'; context.fillText(`Код друга: ${challengeCode(round.entry.id)}`, 360, 754);
+  context.font = '19px Arial'; context.fillText('Открой «Слово друга» в игре', 360, 787);
   return canvas.toDataURL('image/png');
 }
 function shareResult() {
   if (!round) return;
   const image = resultImage();
-  const text = `Буква за буквой. ${round.status === 'won' ? 'Я разгадал' : 'Я узнал'} слово из ${round.length} букв. Попробуй и ты!`;
-  openModal(`<div class="modal-accent">${icon('share')}</div><h2 id="modal-title">Моё открытие</h2>${image ? '<img class="share-preview" id="share-preview" alt="Карточка результата без ответа и личных данных">' : '<p>Слово найдено. Расскажи об игре близким!</p>'}<p class="tutorial-note">Ответ остался секретом. Можно показать эту карточку близким.</p><button type="button" class="button primary" id="share-now">Поделиться</button><button type="button" class="quiet-button" id="share-close">Вернуться к результату</button>`);
+  const code = challengeCode(round.entry.id);
+  const ownApp = Boolean(window.BukvaNative || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bukvaBridge));
+  const text = `Буква за буквой. ${round.status === 'won' ? `Я нашёл слово ${formatGuesses(round.history.length)}${round.hints.size ? ' с подсказками' : ''}` : 'Я узнал новое слово'}! Угадай то же слово.\nКод: ${code}\nВ игре нажми «Слово друга» и введи код.${ownApp ? `\nВ приложении «Буква за буквой»:\nbukvazabukvoy://challenge/${code}` : ''}`;
+  openModal(`<div class="modal-accent">${icon('share')}</div><h2 id="modal-title">Слово для друга</h2>${image ? '<img class="share-preview" id="share-preview" alt="Карточка с числом догадок и кодом слова, без ответа">' : ''}<p class="tutorial-note">Друг получит то же слово. Ответ на карточке не показан.</p><button type="button" class="button primary" id="share-now">Поделиться</button><button type="button" class="quiet-button" id="share-close">К результату</button>`);
   if (image) byId('share-preview').src = image;
   byId('share-now').onclick = () => bridge.share(text, image);
   byId('share-close').onclick = () => closeModal();
@@ -382,7 +492,7 @@ function shareResult() {
 setButton('back-button', 'back'); setButton('help-button', 'question'); setButton('sound-button', 'mute'); setButton('modal-close', 'close');
 byId('modal-close').setAttribute('aria-label', 'Закрыть окно');
 byId('art-spark').innerHTML = icon('sparkle'); byId('kind-icon').innerHTML = icon('bulb'); byId('discovery-icon').innerHTML = icon('sparkle');
-setButton('hint-riddle', 'bulb', 'Загадка'); setButton('hint-meaning', 'book', 'Значение');
+setButton('reveal-button', 'answer'); setButton('hint-meaning', 'book', 'Значение');
 setButton('again-button', 'replay', 'Ещё слово'); setButton('share-button', 'share', 'Показать результат');
 byId('legend').querySelectorAll('[data-legend]').forEach((button) => { button.querySelector('.legend-mark').innerHTML = icon(markNames[button.dataset.legend]); });
 byId('legend').onclick = (event) => {
@@ -393,13 +503,14 @@ byId('legend').onclick = (event) => {
   byId('legend-done').onclick = () => closeModal();
 };
 byId('length-options').onchange = (event) => { chosenLength = Number(event.target.value); };
-byId('start-button').onclick = startRound; byId('again-button').onclick = startRound;
+byId('start-button').onclick = () => startRound(); byId('again-button').onclick = () => startRound();
+byId('friend-button').onclick = showFriendEntry;
 byId('choose-button').onclick = () => showScreen('home');
 byId('back-button').onclick = () => screen === 'home' ? (bridge.close(), toast('До новых открытий!')) : requestHome();
 byId('brand').onclick = (event) => { event.preventDefault(); if (screen !== 'home') requestHome(); };
 byId('help-button').onclick = showRules; byId('sound-button').onclick = toggleSound;
 byId('verify-button').onclick = submit; byId('hint-letter').onclick = letterHint;
-byId('hint-riddle').onclick = () => wordHint('riddle'); byId('hint-meaning').onclick = () => wordHint('meaning');
+byId('hint-meaning').onclick = () => wordHint('meaning');
 byId('reveal-button').onclick = requestReveal; byId('share-button').onclick = shareResult;
 byId('exit-button').onclick = () => { bridge.close(); showScreen('home'); };
 byId('modal-close').onclick = () => closeModal(); byId('modal-backdrop').onclick = () => closeModal();
@@ -421,11 +532,11 @@ document.addEventListener('keydown', (event) => {
     if (event.target instanceof Element && event.target.closest('button,a,input,select,textarea')) return;
     event.preventDefault(); if (!event.repeat) submit(); return;
   }
-  if (event.key === 'Backspace') { event.preventDefault(); if (round.erase()) renderRound(); return; }
+  if (event.key === 'Backspace') { event.preventDefault(); eraseLetter(); return; }
   if (event.key === 'Escape') { event.preventDefault(); requestHome(); return; }
   const letter = normalizeWord(event.key);
   if (letter.length === 1 && ALPHABET.includes(letter)) {
-    event.preventDefault(); if (round.insert(letter)) { tone(); renderRound(); byId('round-title').focus({ preventScroll: true }); }
+    event.preventDefault(); if (insertLetter(letter)) byId('round-title').focus({ preventScroll: true });
   }
 });
 // Оболочка Android вызывает этот обработчик вместо уничтожения незаконченного раунда.
@@ -435,16 +546,21 @@ window.addEventListener('bukva-back', () => {
   else requestHome();
 });
 document.addEventListener('visibilitychange', () => {
+  document.documentElement.classList.toggle('document-hidden', document.hidden);
+  if (document.hidden) stopPreview(); else startPreview();
   if (audioContext && document.hidden) audioContext.suspend().catch(() => {});
   else if (audioContext && soundEnabled) audioContext.resume().catch(() => {});
 });
 window.addEventListener('resize', fitHeight);
+window.addEventListener('hashchange', readChallengeHash);
 if (window.visualViewport) window.visualViewport.addEventListener('resize', fitHeight);
 fitHeight(); buildKeyboard();
 loadContent().then((loaded) => {
   content = loaded;
   byId('start-button').disabled = false;
   byId('start-button').textContent = 'Начнём!';
+  byId('friend-button').disabled = false;
+  readChallengeHash();
 }).catch(() => {
   byId('start-button').textContent = 'Обнови страницу, чтобы начать';
   byId('home-title').textContent = 'Не получилось приготовить слова';
