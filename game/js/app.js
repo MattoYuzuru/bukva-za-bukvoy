@@ -23,7 +23,6 @@ let soundEnabled = false;
 let audioContext = null;
 let audioStep = 0;
 let previewTimer = null;
-let previewDismissed = false;
 const played = new Set();
 
 function escapeText(value) {
@@ -134,7 +133,7 @@ function closeModal(restore = true) {
   onModalClose = null;
   if (restore && lastFocus && lastFocus.isConnected) lastFocus.focus({ preventScroll: true });
   if (callback) callback();
-  if (restore) startPreview();
+  if (restore) startPreview(round && round.history.length ? 12000 : 1100);
 }
 function showRules() {
   tutorialSeen = true;
@@ -183,7 +182,6 @@ function startRound(invited = null) {
   chosenLength = entry.word.length;
   byId('length-options').querySelector(`input[value="${chosenLength}"]`).checked = true;
   round = new Round(entry, content.accepted);
-  previewDismissed = false;
   roundId += 1;
   played.add(entry.id);
   byId('round-theme').textContent = entry.theme;
@@ -230,55 +228,68 @@ function readChallengeHash() {
   }
 }
 
-function stopPreview(dismiss = false) {
+function stopPreview() {
   clearTimeout(previewTimer); previewTimer = null;
-  if (dismiss) previewDismissed = true;
   byId('board').querySelectorAll('.ghost-letter').forEach((letter) => letter.remove());
 }
-function startPreview() {
+function canPreview() {
+  return !document.hidden && screen === 'round' && round && round.status === 'playing'
+    && !round.input.some(Boolean) && byId('modal-layer').hidden;
+}
+function startPreview(delay = 1100) {
   stopPreview();
-  if (previewDismissed || document.hidden || screen !== 'round' || !round || round.status !== 'playing'
-    || round.history.length || round.input.some(Boolean) || !byId('modal-layer').hidden) return;
+  if (!canPreview()) return;
   // Только авторские знакомые слова, никогда не массовый словарь и не ответ.
   const examples = content.words.map((entry) => entry.word).filter((word) => word.length === round.length
-    && word.replace(/Ё/g, 'Е') !== round.answer.replace(/Ё/g, 'Е'));
+    && word.replace(/Ё/g, 'Е') !== round.answer.replace(/Ё/g, 'Е')
+    && !round.history.some((guess) => guess.word === word));
   if (!examples.length) return;
   const first = Math.floor(Math.random() * examples.length);
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let cycle = 0, position = 0, erasing = false;
   const paint = () => {
-    byId('board').querySelectorAll('.ghost-letter').forEach((letter) => letter.remove());
     const word = examples[(first + cycle) % examples.length];
     byId('board').querySelectorAll('[data-current] .tile').forEach((tile, index) => {
-      if (index >= position) return;
+      const existing = tile.querySelector('.ghost-letter');
+      if (index >= position) { if (existing) existing.remove(); return; }
+      // Уже напечатанные буквы сохраняют DOM-узел и не запускают анимацию заново.
+      if (existing) return;
       const ghost = document.createElement('span'); ghost.className = 'ghost-letter';
       ghost.setAttribute('aria-hidden', 'true'); ghost.textContent = word[index]; tile.appendChild(ghost);
     });
   };
-  if (reduced) { position = round.length; paint(); return; }
+  if (reduced) {
+    previewTimer = setTimeout(() => {
+      previewTimer = null;
+      if (canPreview()) { position = round.length; paint(); }
+    }, delay);
+    return;
+  }
   const step = () => {
+    if (!canPreview()) { stopPreview(); return; }
     position += erasing ? -1 : 1;
     paint();
-    let delay = erasing ? 110 : 210;
-    if (position === round.length) { erasing = true; delay = 1200; }
+    let nextDelay = erasing ? 180 : 260;
+    if (position === round.length) { erasing = true; nextDelay = 1600; }
     if (position === 0) {
-      cycle += 1; erasing = false; delay = 650;
-      // Два примера, затем тишина: анимация не соревнуется с загадкой за внимание.
-      if (cycle === 2) { previewTimer = null; return; }
+      cycle += 1; erasing = false; nextDelay = 850;
+      // Два примера, затем длинная пауза. Повторяем и после проверенной догадки.
+      if (cycle === Math.min(2, examples.length)) { startPreview(12000); return; }
     }
-    previewTimer = setTimeout(step, delay);
+    previewTimer = setTimeout(step, nextDelay);
   };
-  previewTimer = setTimeout(step, 1100);
+  previewTimer = setTimeout(step, delay);
 }
 
 function insertLetter(letter) {
-  stopPreview(true);
+  stopPreview();
   if (round.insert(letter)) { message(''); tone(); renderRound(); return true; }
   message('Нажми «Проверим!»'); return false;
 }
 function eraseLetter() {
-  stopPreview(true);
+  stopPreview();
   if (round.erase()) { message(''); tone('erase'); renderRound(); }
+  startPreview(12000);
 }
 
 function buildKeyboard() {
@@ -339,7 +350,7 @@ function renderRound(scroll = false) {
         if (round.revealed[column]) {
           const mark = document.createElement('span'); mark.className = 'tile-mark'; mark.innerHTML = icon('lock'); tile.appendChild(mark);
           tile.onclick = () => toast('Эту букву открыла подсказка. Она уже на своём месте.');
-        } else tile.onclick = () => { stopPreview(true); round.select(column); renderRound(); byId('board').querySelectorAll('[data-current] .tile')[column].focus({ preventScroll: true }); };
+        } else tile.onclick = () => { stopPreview(); round.select(column); renderRound(); startPreview(12000); byId('board').querySelectorAll('[data-current] .tile')[column].focus({ preventScroll: true }); };
       } else tile.setAttribute('aria-hidden', 'true');
       row.appendChild(tile);
     }
@@ -369,7 +380,7 @@ function renderRound(scroll = false) {
 }
 function submit() {
   if (!round || screen !== 'round') return;
-  stopPreview(true);
+  stopPreview();
   const result = round.submit();
   if (!result.ok) {
     const feedback = {
@@ -381,6 +392,7 @@ function submit() {
       message(feedback[result.reason]);
       const board = byId('board'); board.classList.remove('shake'); void board.offsetWidth; board.classList.add('shake');
     }
+    startPreview(12000);
     return;
   }
   renderRound(true);
@@ -391,11 +403,12 @@ function submit() {
   } else {
     message('');
     tone('hint');
+    startPreview(12000);
   }
 }
 function letterHint() {
   if (!round || round.status !== 'playing') return;
-  stopPreview(true);
+  stopPreview();
   let hint;
   if (round.letterHintUsed) {
     const position = Number(Object.keys(round.revealed)[0]);
@@ -547,7 +560,7 @@ window.addEventListener('bukva-back', () => {
 });
 document.addEventListener('visibilitychange', () => {
   document.documentElement.classList.toggle('document-hidden', document.hidden);
-  if (document.hidden) stopPreview(); else startPreview();
+  if (document.hidden) stopPreview(); else startPreview(12000);
   if (audioContext && document.hidden) audioContext.suspend().catch(() => {});
   else if (audioContext && soundEnabled) audioContext.resume().catch(() => {});
 });

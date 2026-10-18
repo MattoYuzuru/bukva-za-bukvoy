@@ -427,8 +427,8 @@ h1:focus {
 .tile-mark { position:absolute; right:4px; top:4px; opacity:.9 }
 .tile-mark .icon { height:10px; width:10px; stroke-width:2.3 }
 .tile.exact .tile-mark { color:#fff }
-.ghost-letter { color:#76916d; opacity:.45; animation:ghost-in .2s ease-out; pointer-events:none }
-@keyframes ghost-in { from { opacity:0; transform:translateY(3px) } to { opacity:.45; transform:translateY(0) } }
+.ghost-letter { color:#76916d; opacity:.45; animation:ghost-in .16s ease-out; pointer-events:none }
+@keyframes ghost-in { from { opacity:0 } to { opacity:.45 } }
 .legend { display:flex; justify-content:space-between; gap:4px; flex-shrink:0; margin-top:5px }
 .legend button { display:flex; align-items:center; justify-content:center; gap:4px; min-height:36px; background:none; font-size:11px; font-weight:650; padding:3px 0; color:#3e593c }
 .legend-mark { display:flex; width:20px; height:20px; border-radius:7px; align-items:center; justify-content:center }
