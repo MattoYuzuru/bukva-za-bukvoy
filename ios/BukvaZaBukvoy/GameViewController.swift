@@ -13,6 +13,35 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private var completed = false
     private var lastShare: TimeInterval = -.infinity
     private var generation = 0
+    var pendingChallenge: String?
+
+    static func challengeCode(from url: URL) -> String? {
+        guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.scheme?.lowercased() == "bukvazabukvoy", parts.host?.lowercased() == "challenge",
+              parts.user == nil, parts.password == nil, parts.port == nil,
+              parts.query == nil, parts.fragment == nil else { return nil }
+        let path = url.pathComponents.filter { $0 != "/" }
+        guard path.count == 1 else { return nil }
+        let code = path[0].uppercased()
+        return code.range(of: "^BB1-[A-F0-9]{8}$", options: .regularExpression) != nil ? code : nil
+    }
+
+    func openChallenge(_ url: URL) {
+        guard let code = Self.challengeCode(from: url) else { return }
+        pendingChallenge = code
+        guard isViewLoaded else { return }
+        if let webView = webView {
+            if webView.url != nil && !webView.isLoading { deliverPendingChallenge() }
+        } else { openGame() }
+    }
+
+    private func deliverPendingChallenge() {
+        guard let code = pendingChallenge, let webView = webView else { return }
+        pendingChallenge = nil
+        // В строку попадает только прошедший проверку ASCII-код.
+        let script = "(function(){var h='challenge=\(code)';if(location.hash==='#'+h)window.dispatchEvent(new Event('hashchange'));else location.hash=h;})();"
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
@@ -86,7 +115,10 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDele
                 return
             }
             webView.configuration.userContentController.add(list)
-            webView.loadFileURL(entry, allowingReadAccessTo: folder)
+            var components = URLComponents(url: entry, resolvingAgainstBaseURL: false)!
+            if let code = self.pendingChallenge { components.fragment = "challenge=" + code }
+            self.pendingChallenge = nil
+            webView.loadFileURL(components.url!, allowingReadAccessTo: folder)
         }
     }
 
@@ -201,11 +233,24 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDele
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard navigationAction.targetFrame?.isMainFrame == true,
               let url = navigationAction.request.url?.standardizedFileURL, url.isFileURL,
-              url == entryURL, navigationAction.navigationType == .other else {
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              navigationAction.navigationType == .other else {
+            decisionHandler(.cancel)
+            return
+        }
+        let fragment = components.fragment
+        components.fragment = nil
+        guard components.url?.standardizedFileURL == entryURL,
+              fragment == nil || fragment == "" || fragment!.range(of: "^challenge=BB1-[A-F0-9]{8}$", options: .regularExpression) != nil else {
             decisionHandler(.cancel)
             return
         }
         decisionHandler(.allow)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard self.webView === webView else { return }
+        deliverPendingChallenge()
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,

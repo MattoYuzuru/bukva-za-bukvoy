@@ -8,7 +8,7 @@ const copy = (value) => JSON.parse(JSON.stringify(value));
 
 test('в основном наборе достаточно ответов каждой длины и более широкий список догадок', () => {
   const content = validateContent(source);
-  assert.equal(content.version, '1.0.0');
+  assert.equal(content.version, '1.2.0');
   assert.ok(content.words.length >= 64);
   for (const length of [4, 5, 6, 7]) {
     assert.ok(content.words.filter((entry) => entry.word.length === length).length >= 16);
@@ -16,7 +16,7 @@ test('в основном наборе достаточно ответов ка�
   assert.ok(content.accepted.size >= 250);
   assert.equal(source.accepted.length, content.accepted.size, 'в авторском списке нет случайных дублей');
   assert.ok(content.accepted.has('ЁЛКА'));
-  assert.ok(!content.accepted.has('ЕЛКА'), 'замена Ё на Е не должна создавать другое допустимое слово');
+  assert.ok(content.accepted.has('ЕЛКА'), 'вариант ввода с Е тоже принимается');
   assert.ok(content.accepted.has('СТОЛ'), 'можно проверять догадки, которые не загадываются');
   assert.ok(content.accepted.has('ЛАМПА'), 'обычная детская догадка не должна случайно выпадать из списка');
   for (const word of ['МАМА', 'ПАПА', 'НОГА', 'РУКА', 'ОКНО', 'ПЕНАЛ', 'ЛИЦО']) assert.ok(content.accepted.has(word), word);

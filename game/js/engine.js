@@ -1,6 +1,28 @@
 // Чистые правила раунда. Платформа и интерфейс не влияют на результат проверки.
 export const ALPHABET = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
-export const MAX_ATTEMPTS = 6;
+export const VISIBLE_ROWS = 3;
+// Устойчивый непрозрачный идентификатор карточки, не шифрование ответа.
+export function challengeCode(id) {
+  let hash = 2166136261;
+  for (const char of `bukva:challenge:v1:${id}`) {
+    hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  }
+  return `BB1-${(hash >>> 0).toString(16).padStart(8, '0').toUpperCase()}`;
+}
+export function normalizeChallenge(value) {
+  if (typeof value !== 'string' || value.length > 128) return null;
+  const match = value.trim().match(/^(?:bukvazabukvoy:\/\/challenge\/)?(BB1-[A-F0-9]{8})\/?$/i);
+  return match ? match[1].toUpperCase() : null;
+}
+export function findChallenge(words, value) {
+  const code = normalizeChallenge(value);
+  return code ? words.find((entry) => challengeCode(entry.id) === code) || null : null;
+}
+export function formatGuesses(count) {
+  const last = count % 10, hundred = count % 100;
+  const ending = last === 1 && hundred !== 11 ? 'догадку' : last >= 2 && last <= 4 && (hundred < 12 || hundred > 14) ? 'догадки' : 'догадок';
+  return `за ${count} ${ending}`;
+}
 export const STATUS = Object.freeze({ EXACT: 'exact', PRESENT: 'present', ABSENT: 'absent' });
 const priority = { absent: 1, present: 2, exact: 3 };
 
@@ -88,7 +110,6 @@ export class Round {
     const states = evaluateGuess(this.answer, word);
     this.history.push({ word, states });
     if (word === this.answer) this.status = 'won';
-    else if (this.history.length === MAX_ATTEMPTS) this.status = 'exhausted';
     this.input = Array.from({ length: this.length }, (_, i) => this.revealed[i] || '');
     this.cursor = this.input.findIndex((value) => !value);
     if (this.cursor < 0) this.cursor = null;

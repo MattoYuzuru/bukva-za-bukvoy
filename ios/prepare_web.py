@@ -15,7 +15,7 @@ class PreparationError(ValueError):
 
 MODULES = ("engine.js", "content.js", "icons.js", "bridge.js", "app.js")
 EXPORTS = {
-    "engine.js": {"ALPHABET", "MAX_ATTEMPTS", "STATUS", "normalizeWord", "isRussianWord", "evaluateGuess", "keyboardKnowledge", "Round", "explainCell"},
+    "engine.js": {"ALPHABET", "VISIBLE_ROWS", "STATUS", "normalizeWord", "isRussianWord", "evaluateGuess", "keyboardKnowledge", "Round", "explainCell", "challengeCode", "normalizeChallenge", "findChallenge", "formatGuesses"},
     "content.js": {"FALLBACK_CONTENT", "validateContent", "loadContent"},
     "icons.js": {"icon"}, "bridge.js": {"createBridge"}, "app.js": set(),
 }
@@ -94,6 +94,9 @@ def prepare(source, output):
         (temporary / "ios-bundle.js").write_text("".join(chunks), encoding="utf-8")
         shutil.copyfile(source / "styles.css", temporary / "styles.css")
         shutil.copytree(source / "assets", temporary / "assets")
+        dictionary_license = source / "data/dictionary-license.json"
+        if dictionary_license.is_file():
+            shutil.copyfile(dictionary_license, temporary / "dictionary-license.json")
         manifest = {"format": "classic-iife-embedded-content", "canonicalFilesSha256": before,
                     "words": len(raw["words"]), "accepted": len(raw["accepted"])}
         (temporary / "ios-build.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

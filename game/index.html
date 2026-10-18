@@ -18,6 +18,7 @@
       <button class="icon-button" id="back-button" type="button" aria-label="Выйти из игры" title="Выйти из игры"></button>
       <a class="brand" href="#" id="brand" aria-label="Буква за буквой — главный экран"><img src="./assets/logo.svg" width="28" height="28" alt=""><span>Буква за буквой</span></a>
       <div class="header-actions">
+        <button class="icon-button reveal-button" id="reveal-button" type="button" aria-label="Открыть слово вместе" title="Открыть слово вместе" hidden></button>
         <button class="icon-button" id="help-button" type="button" aria-label="Как играть" title="Как играть"></button>
         <button class="icon-button" id="sound-button" type="button" aria-label="Включить звук" aria-pressed="false" title="Включить звук"></button>
       </div>
@@ -39,23 +40,21 @@
           </div>
         </fieldset>
         <button id="start-button" class="button primary start-button" type="button" disabled>Готовим слова…</button>
+        <button id="friend-button" class="quiet-button friend-button" type="button" disabled>Слово друга</button>
         <div class="kind-note"><span id="kind-icon" aria-hidden="true"></span><p>Здесь можно пробовать.<br>Подсказки всегда рядом.</p></div>
-        <p class="home-footnote">Один раунд — одно открытие</p>
       </section>
 
       <section id="round-screen" class="screen round-screen" aria-labelledby="round-title" hidden>
         <div class="round-layout">
           <div class="round-left">
-            <div class="round-heading"><div><p class="eyebrow" id="round-theme"></p><h1 id="round-title" tabindex="-1"></h1></div><span class="attempt-pill" id="attempt-label"></span></div>
-            <div class="board-scroll" id="board-scroll" tabindex="0" aria-label="Поле попыток. Предыдущие строки можно прокрутить"><div class="board" id="board" role="group" aria-label="Попытки угадать слово"></div></div>
+            <div class="round-heading"><p class="eyebrow" id="round-theme"></p><p class="round-message" id="round-message" role="status" aria-live="polite" aria-atomic="true"></p><h1 id="round-title" tabindex="-1"></h1></div>
+            <div class="board-scroll" id="board-scroll"><div class="board" id="board" role="group" aria-label="Последние догадки и строка ввода"></div></div>
             <div class="legend" id="legend" aria-label="Что означают цвета"><button type="button" data-legend="exact"><span class="legend-mark exact"></span>На месте</button><button type="button" data-legend="present"><span class="legend-mark present"></span>Другое место</button><button type="button" data-legend="absent"><span class="legend-mark absent"></span>Буквы нет</button></div>
           </div>
           <div class="round-right">
-            <p class="round-message" id="round-message" role="status" aria-live="polite" aria-atomic="true">Начни с любого знакомого слова.</p>
-            <div class="hint-buttons" aria-label="Подсказки"><button type="button" class="hint-button hint-letter" id="hint-letter"></button><button type="button" class="hint-button hint-riddle" id="hint-riddle"></button><button type="button" class="hint-button hint-meaning" id="hint-meaning"></button></div>
+            <div class="hint-buttons" aria-label="Подсказки"><button type="button" class="hint-button hint-letter" id="hint-letter"></button><button type="button" class="hint-button hint-meaning" id="hint-meaning"></button></div>
             <button class="button primary verify-button" id="verify-button" type="button">Проверим!</button>
             <div class="keyboard" id="keyboard" role="group" aria-label="Русская клавиатура"></div>
-            <button class="quiet-button reveal-button" id="reveal-button" type="button">Открыть слово вместе</button>
           </div>
         </div>
       </section>

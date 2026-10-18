@@ -51,6 +51,7 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private long lastShareAt;
     private boolean completed;
+    private String pendingChallenge;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -105,7 +106,8 @@ public final class MainActivity extends Activity {
             webView.addJavascriptInterface(new NativeBridge(), "BukvaNative");
             webView.setWebViewClient(new LocalContentClient());
             clearOldShares();
-            webView.loadUrl(ORIGIN + "/index.html");
+            String challenge = challengeFrom(getIntent());
+            webView.loadUrl(ORIGIN + "/index.html" + (challenge == null ? "" : "#challenge=" + challenge));
         } catch (IOException | RuntimeException exception) {
             Log.e(TAG, "Не удалось открыть встроенную игру", exception);
             TextView error = new TextView(this);
@@ -117,6 +119,32 @@ public final class MainActivity extends Activity {
         }
     }
 
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String code = challengeFrom(intent);
+        if (code == null || webView == null) return;
+        if (webView.getProgress() < 100) pendingChallenge = code;
+        else deliverChallenge(code);
+    }
+
+    private static String challengeFrom(Intent intent) {
+        if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return null;
+        Uri uri = intent.getData();
+        if (uri == null || !"bukvazabukvoy".equalsIgnoreCase(uri.getScheme())
+            || !"challenge".equalsIgnoreCase(uri.getHost()) || uri.getUserInfo() != null
+            || uri.getPort() != -1 || uri.getQuery() != null || uri.getFragment() != null
+            || uri.getPathSegments().size() != 1) return null;
+        String code = uri.getLastPathSegment();
+        return code != null && code.matches("(?i)BB1-[A-F0-9]{8}") ? code.toUpperCase(java.util.Locale.ROOT) : null;
+    }
+
+    private void deliverChallenge(String code) {
+        // В JS попадает только строка фиксированного алфавита, а не исходный URI.
+        webView.evaluateJavascript("(function(){var h='challenge=" + code
+            + "';if(location.hash==='#'+h)window.dispatchEvent(new Event('hashchange'));else location.hash=h;})();", null);
+    }
+
     private static boolean local(Uri uri) {
         return "https".equals(uri.getScheme()) && "game.bukva.invalid".equals(uri.getHost())
             && uri.getPort() == -1 && uri.getUserInfo() == null;
@@ -124,8 +152,16 @@ public final class MainActivity extends Activity {
 
     private final class LocalContentClient extends WebViewClient {
         @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            // Самостоятельная навигация внутри игры не требуется.
-            return true;
+            Uri uri = request.getUrl();
+            return !(local(uri) && "/index.html".equals(uri.getPath()) && uri.getQuery() == null
+                && uri.getFragment() != null && uri.getFragment().matches("challenge=BB1-[A-F0-9]{8}"));
+        }
+
+        @Override public void onPageFinished(WebView view, String url) {
+            if (pendingChallenge != null) {
+                String code = pendingChallenge; pendingChallenge = null;
+                deliverChallenge(code);
+            }
         }
 
         @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {

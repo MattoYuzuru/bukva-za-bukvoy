@@ -45,3 +45,38 @@ test('Enter на кнопке оставляет стандартное дейс
     assert.equal(prevented, !interactive); assert.equal(submits, interactive ? 0 : 1);
   }
 });
+
+test('пример ввода не показывает ответ, не пишет в догадку и заканчивается после двух слов', () => {
+  const tasks = new Map(), snapshots = [];
+  let nextId = 0;
+  const tiles = Array.from({length:4}, () => ({
+    appendChild(letter) { this.ghost = letter; },
+  }));
+  const board = { querySelectorAll(selector) {
+    if (selector === '[data-current] .tile') return tiles;
+    return tiles.filter(t => t.ghost).map(t => ({remove() { delete t.ghost; }}));
+  } };
+  const scope = {
+    round: {answer:'ЛИСА',length:4,status:'playing',history:[],input:['','','','']},
+    content: {words:[{word:'ЛИСА'},{word:'СОВА'},{word:'РЕКА'}]}, screen:'round',
+    previewTimer:null, previewDismissed:false,
+    document:{hidden:false,createElement:()=>({setAttribute(){}})},
+    window:{matchMedia:()=>({matches:false})},
+    byId:id=>id==='board'?board:{hidden:true},
+    setTimeout(fn) { tasks.set(++nextId,fn); return nextId; },
+    clearTimeout(id) { tasks.delete(id); },
+  };
+  vm.createContext(scope);
+  vm.runInContext(functionSource('stopPreview','insertLetter')+'\nstartPreview();',scope);
+  let steps = 0;
+  while (tasks.size && steps++ < 30) {
+    const [id,fn]=tasks.entries().next().value; tasks.delete(id); fn();
+    snapshots.push(tiles.map(t=>t.ghost?.textContent||'').join(''));
+  }
+  assert.ok(snapshots.includes('СОВА') && snapshots.includes('РЕКА'));
+  assert.ok(!snapshots.includes('ЛИСА'));
+  assert.equal(tasks.size,0); assert.ok(steps<30);
+  assert.equal(scope.round.input.join(''),'');
+  vm.runInContext('stopPreview(true); startPreview();',scope);
+  assert.equal(tasks.size,0); assert.equal(scope.previewDismissed,true);
+});

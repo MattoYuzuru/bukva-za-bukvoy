@@ -8,6 +8,7 @@ const paths = {
   erase: '<path d="M8 5h12v14H8l-6-7 6-7Z"/><path d="m11 9 6 6m0-6-6 6"/>',
   bulb: '<path d="M8 16c0-2-3-3-3-7a7 7 0 0 1 14 0c0 4-3 5-3 7M8 17h8m-7 3h6"/><path d="M10 10h4m-2 0v6"/>',
   book: '<path d="M12 6c-3-2-6-2-10-1v14c4-1 7-1 10 1 3-2 6-2 10-1V5c-4-1-7-1-10 1Zm0 0v14"/>',
+  answer: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   letter: '<rect x="4" y="3" width="16" height="18" rx="4"/><path d="m8 16 4-9 4 9M9.5 13h5"/>',
   question: '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 3v.2"/>',
   sound: '<path d="M4 9h4l5-4v14l-5-4H4Z"/><path d="M17 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',

@@ -84,7 +84,7 @@ def main() -> None:
     unsigned = build / "unsigned.apk"
     run([tools / "aapt2", "link", "-o", unsigned, "--manifest", ROOT / "android/AndroidManifest.xml",
          "-I", android_jar, "--java", generated, "--min-sdk-version", "26", "--target-sdk-version", "36",
-         "--version-code", "1", "--version-name", "1.0.0", "-A", ROOT / "game", compiled_resources], env=env)
+         "--version-code", "3", "--version-name", "1.3.0", "-A", ROOT / "game", compiled_resources], env=env)
     sources = sorted((ROOT / "android/src").rglob("*.java")) + sorted(generated.rglob("*.java"))
     # --release даёт полный Java-8 API компилятору (включая LambdaMetafactory),
     # android.jar остаётся источником Android API, d8 переносит lambda в dex.
@@ -128,7 +128,7 @@ def main() -> None:
     source_head = run(["git", "rev-parse", "HEAD"], capture=True)
     metadata = {
         "applicationId": "ru.bukvazabukvoy.game", "name": "Буква за буквой",
-        "versionName": "1.0.0", "versionCode": 1, "minSdk": 26, "targetSdk": 36,
+        "versionName": "1.3.0", "versionCode": 3, "minSdk": 26, "targetSdk": 36,
         "buildTools": BUILD_TOOLS, "java": 21, "gitHead": source_head,
         "gameSha256": initial_game_hash, "androidSha256": initial_android_hash,
         "apkSha256": hashlib.sha256(output.read_bytes()).hexdigest(), "bytes": output.stat().st_size,
